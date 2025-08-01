@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
       - name: node-app
-        image: rustx2802/my-app:09b49cf5dc945a1db3e5aa4661f5e796bc9502f5
+        image: rustx2802/my-app:latest
         ports:
         - containerPort: 3000 
