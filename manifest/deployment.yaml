@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-app-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: node-app
+  template:
+    metadata:
+      labels:
+        app: node-app
+    spec:
+      containers:
+      - name: node-app
+        image: rustx2802/my-app:09b49cf5dc945a1db3e5aa4661f5e796bc9502f5
+        ports:
+        - containerPort: 3000 
