@@ -1,9 +1,10 @@
-name: GitOps Pipeline with ArgoCD
+name: GitOps Pipeline with ArgoCD (Self-Hosted)
 
 on: 
     push:
         branches: 
             - main
+
 env: 
     PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -11,9 +12,10 @@ env:
     ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
     ARGOCD_USERNAME: ${{ secrets.ARGOCD_USERNAME }}
     ARGOCD_PASSWORD: ${{ secrets.ARGOCD_PASSWORD }}
+
 jobs:
     build:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-latest  # Keep build on GitHub runners
         steps: 
             - name: Checkout code
               uses: actions/checkout@v3
@@ -43,7 +45,7 @@ jobs:
 
     deploy:
         needs: build
-        runs-on: ubuntu-latest
+        runs-on: self-hosted  # Use self-hosted runner for ArgoCD access
         steps: 
             - name: Checkout code
               uses: actions/checkout@v3
@@ -51,39 +53,25 @@ jobs:
                 token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
                 fetch-depth: 0
 
-            - name: Install kubectl
-              run: |
-                  curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.30.7/2024-12-12/bin/linux/amd64/kubectl
-                  chmod +x ./kubectl
-                  sudo mv ./kubectl /usr/local/bin/kubectl
-
             - name: Install ArgoCD CLI
               run: | 
                   curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
                   chmod +x argocd
                   sudo mv argocd /usr/local/bin/argocd
 
-            - name: Test ArgoCD Server Connectivity
-              run: |
-                echo "Testing connectivity to ArgoCD server..."
-                # Remove protocol and extract host/port
-                SERVER_HOST=$(echo "${{ secrets.ARGOCD_SERVER }}" | sed 's|https\?://||' | cut -d':' -f1)
-                SERVER_PORT=$(echo "${{ secrets.ARGOCD_SERVER }}" | sed 's|https\?://||' | cut -d':' -f2)
-                if [ "$SERVER_PORT" = "$SERVER_HOST" ]; then
-                  SERVER_PORT=443
-                fi
-                echo "Connecting to $SERVER_HOST:$SERVER_PORT"
-                timeout 30 nc -zv $SERVER_HOST $SERVER_PORT || echo "Connection failed"
-
             - name: Login to ArgoCD
               run: |
-                echo "Attempting to login to ArgoCD..."
-                timeout 300 argocd login ${{ secrets.ARGOCD_SERVER }} \
+                argocd login ${{ secrets.ARGOCD_SERVER }} \
                     --username ${{ secrets.ARGOCD_USERNAME }} \
                     --password ${{ secrets.ARGOCD_PASSWORD }} \
-                    --insecure \
-                    --grpc-web
-              env:
-                ARGOCD_OPTS: "--grpc-web"
+                    --insecure
 
-        # Add your post-login steps here (e.g., app sync, deployment updates)
+            - name: Update Application Image
+              run: |
+                argocd app set my-app \
+                    --parameter image.tag=${{ github.sha }}
+                
+            - name: Sync Application
+              run: |
+                argocd app sync my-app
+                argocd app wait my-app --timeout 300
