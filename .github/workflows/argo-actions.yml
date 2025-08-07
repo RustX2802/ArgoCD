@@ -68,8 +68,4 @@ jobs:
                 timeout 300 argocd login ${{ secrets.ARGOCD_SERVER }} \
                     --username ${{ secrets.ARGOCD_USERNAME }} \
                     --password ${{ secrets.ARGOCD_PASSWORD }} \
-                    --insecure--insecure \
-                    --grpc-web
-              env:
-                ARGOCD_OPTS: "--grpc-web"
-            
+                    --insecure--insecure
