@@ -59,19 +59,43 @@ jobs:
                   chmod +x argocd
                   sudo mv argocd /usr/local/bin/argocd
 
-            - name: Login to ArgoCD
+            - name: Login to ArgoCD via API
               run: |
-                argocd login ${{ secrets.ARGOCD_SERVER }} \
-                    --username ${{ secrets.ARGOCD_USERNAME }} \
-                    --password ${{ secrets.ARGOCD_PASSWORD }} \
-                    --insecure
-
-            - name: Update Application Image
+                # Get ArgoCD token via API
+                TOKEN=$(curl -k -X POST \
+                  "https://${{ secrets.ARGOCD_SERVER }}/api/v1/session" \
+                  -H "Content-Type: application/json" \
+                  -d '{"username":"${{ secrets.ARGOCD_USERNAME }}","password":"${{ secrets.ARGOCD_PASSWORD }}"}' \
+                  | jq -r .token)
+                echo "ARGOCD_TOKEN=$TOKEN" >> $GITHUB_ENV
+            
+            - name: Update Application via API
               run: |
-                argocd app set my-app \
-                    --parameter image.tag=${{ github.sha }}
-                
-            - name: Sync Application
+                # Update application image tag
+                curl -k -X PATCH \
+                  "https://${{ secrets.ARGOCD_SERVER }}/api/v1/applications/my-app" \
+                  -H "Authorization: Bearer ${{ env.ARGOCD_TOKEN }}" \
+                  -H "Content-Type: application/json" \
+                  -d '{
+                    "spec": {
+                      "source": {
+                        "helm": {
+                          "parameters": [
+                            {
+                              "name": "image.tag",
+                              "value": "${{ github.sha }}"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }'
+            
+            - name: Sync Application via API
               run: |
-                argocd app sync my-app
-                argocd app wait my-app --timeout 300
+                # Trigger sync
+                curl -k -X POST \
+                  "https://${{ secrets.ARGOCD_SERVER }}/api/v1/applications/my-app/sync" \
+                  -H "Authorization: Bearer ${{ env.ARGOCD_TOKEN }}" \
+                  -H "Content-Type: application/json" \
+                  -d '{"prune":false,"dryRun":false}'
