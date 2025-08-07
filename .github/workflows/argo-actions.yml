@@ -5,7 +5,8 @@ on:
         branches: 
             - main
 env: 
-    PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}    
+    PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 jobs:
     build:
         runs-on: ubuntu-latest
@@ -20,6 +21,9 @@ jobs:
               uses: actions/setup-node@v3
               with: 
                 node-version: '14'
+
+            - name: Build Docker Image
+              run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ github.sha }} .
 
             - name: Install NodeJS dependencies
               run: npm install
